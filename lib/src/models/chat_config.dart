@@ -61,6 +61,9 @@ class AIChatConfig {
   // -- Custom launcher --
   final Widget Function(BuildContext context, VoidCallback onTap)? customLauncher;
 
+  // -- Origin (for mobile apps that need to pass allowed domain) --
+  final String? origin;
+
   const AIChatConfig({
     required this.widgetId,
     this.apiUrl = 'https://replyit.ai',
@@ -100,6 +103,7 @@ class AIChatConfig {
     this.websocketPort = 443,
     this.websocketScheme = 'wss',
     this.customLauncher,
+    this.origin,
   });
 
   /// Create config by merging local defaults with backend response
@@ -108,6 +112,7 @@ class AIChatConfig {
       widgetId: widgetId,
       apiUrl: apiUrl,
       customLauncher: customLauncher,
+      origin: origin,
       primaryColor: _parseColor(json['primary_color']) ?? primaryColor,
       headerColor: _parseColor(json['header_color']) ?? _parseColor(json['primary_color']) ?? headerColor,
       headerTextColor: _parseColor(json['header_text_color']) ?? headerTextColor,

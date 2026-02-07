@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/chat_config.dart';
@@ -50,17 +51,22 @@ class AIChatController extends ChangeNotifier {
   bool get quickRepliesVisible => _quickRepliesVisible;
   int get unreadCount => _messages.where((m) => m.isAgent).length;
 
+  bool _isInitializing = false;
+
   /// Initialize the chat controller with widget configuration
   Future<void> initialize(AIChatConfig config) async {
     if (_isInitialized && _config?.widgetId == config.widgetId) return;
+    if (_isInitializing) return;
+    _isInitializing = true;
 
     _isLoading = true;
-    notifyListeners();
+    _safeNotifyListeners();
 
     _config = config;
     _apiService = ChatApiService(
       apiUrl: config.apiUrl,
       widgetId: config.widgetId,
+      origin: config.origin,
     );
 
     // Restore session from SharedPreferences
@@ -80,7 +86,8 @@ class AIChatController extends ChangeNotifier {
 
     _isInitialized = true;
     _isLoading = false;
-    notifyListeners();
+    _isInitializing = false;
+    _safeNotifyListeners();
 
     // Auto open if configured
     if (_config!.autoOpen) {
@@ -194,6 +201,19 @@ class AIChatController extends ChangeNotifier {
   void setLanguage(String languageCode) {
     _selectedLanguage = languageCode;
     notifyListeners();
+  }
+
+  /// Safely notify listeners, deferring if called during build phase
+  void _safeNotifyListeners() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    } else {
+      notifyListeners();
+    }
   }
 
   // -- Private methods --

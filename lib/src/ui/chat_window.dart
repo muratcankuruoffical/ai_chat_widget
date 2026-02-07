@@ -58,7 +58,6 @@ class _AIChatWindowState extends State<AIChatWindow>
     );
 
     _chatController.addListener(_onControllerChange);
-    _chatController.initialize(widget.config);
 
     if (widget.isVisible) _animController.forward();
   }
@@ -124,7 +123,9 @@ class _AIChatWindowState extends State<AIChatWindow>
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: Container(
+        child: Material(
+          type: MaterialType.transparency,
+          child: Container(
           height: windowHeight.clamp(400, 600).toDouble(),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -150,6 +151,7 @@ class _AIChatWindowState extends State<AIChatWindow>
               ],
             ),
           ),
+        ),
         ),
       ),
     );
@@ -193,21 +195,24 @@ class _AIChatWindowState extends State<AIChatWindow>
             ),
           ),
           // New session button
-          IconButton(
-            onPressed: () => _chatController.startNewSession(),
-            icon: Icon(Icons.refresh, color: config.headerTextColor, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          GestureDetector(
+            onTap: () => _chatController.startNewSession(),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(Icons.refresh, color: config.headerTextColor, size: 20),
+            ),
           ),
+          const SizedBox(width: 8),
           // Close button
-          IconButton(
-            onPressed: () {
+          GestureDetector(
+            onTap: () {
               _chatController.closeChat();
               widget.onClose?.call();
             },
-            icon: Icon(Icons.close, color: config.headerTextColor, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(Icons.close, color: config.headerTextColor, size: 20),
+            ),
           ),
         ],
       ),
@@ -244,9 +249,8 @@ class _AIChatWindowState extends State<AIChatWindow>
         spacing: 8,
         runSpacing: 6,
         children: config.quickReplies.map((reply) {
-          return InkWell(
+          return GestureDetector(
             onTap: () => _handleQuickReply(reply.text),
-            borderRadius: BorderRadius.circular(20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(

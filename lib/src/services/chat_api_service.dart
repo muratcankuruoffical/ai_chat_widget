@@ -7,16 +7,27 @@ import '../models/chat_message.dart';
 class ChatApiService {
   final String apiUrl;
   final String widgetId;
+  final String? origin;
 
-  ChatApiService({required this.apiUrl, required this.widgetId});
+  ChatApiService({
+    required this.apiUrl,
+    required this.widgetId,
+    this.origin,
+  });
 
   String get _baseUrl => '$apiUrl/api/widgets/$widgetId';
+
+  Map<String, String> get _headers => {
+        'Accept': 'application/json',
+        if (origin != null) 'Origin': origin!,
+        if (origin != null) 'Referer': origin!,
+      };
 
   /// Fetch widget configuration from backend
   Future<Map<String, dynamic>> fetchConfig() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/config'),
-      headers: {'Accept': 'application/json'},
+      headers: _headers,
     );
 
     if (response.statusCode == 200) {
@@ -40,8 +51,8 @@ class ChatApiService {
     final response = await http.post(
       Uri.parse('$_baseUrl/chat'),
       headers: {
+        ..._headers,
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
       },
       body: jsonEncode({
         'message': message,
@@ -61,7 +72,7 @@ class ChatApiService {
   Future<List<ChatMessage>> pollMessages(String sessionId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/poll/$sessionId'),
-      headers: {'Accept': 'application/json'},
+      headers: _headers,
     );
 
     if (response.statusCode == 200) {
