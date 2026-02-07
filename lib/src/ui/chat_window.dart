@@ -196,7 +196,6 @@ class _AIChatWindowState extends State<AIChatWindow>
           IconButton(
             onPressed: () => _chatController.startNewSession(),
             icon: Icon(Icons.refresh, color: config.headerTextColor, size: 20),
-            tooltip: 'New conversation',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),

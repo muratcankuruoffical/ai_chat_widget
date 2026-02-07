@@ -68,7 +68,9 @@ class _AIChatWidgetState extends State<AIChatWidget> {
   Widget build(BuildContext context) {
     final isRight = widget.config.position != 'bottom-left';
 
-    return Stack(
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
       children: [
         // Chat window
         Positioned(
@@ -100,6 +102,7 @@ class _AIChatWidgetState extends State<AIChatWidget> {
                 ),
         ),
       ],
+      ),
     );
   }
 }
