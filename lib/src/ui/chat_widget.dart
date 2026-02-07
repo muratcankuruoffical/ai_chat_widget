@@ -80,38 +80,44 @@ class _AIChatWidgetState extends State<AIChatWidget> {
     final isRight = widget.config.position != 'bottom-left';
 
     return SizedBox.expand(
-      child: Stack(
-        children: [
-          // Chat window
-          Positioned(
-            bottom: 76,
-            left: isRight ? null : 20,
-            right: isRight ? 20 : null,
-            width: MediaQuery.of(context).size.width > 400
-                ? 370
-                : MediaQuery.of(context).size.width - 40,
-            child: AIChatWindow(
-              config: widget.config,
-              isVisible: _controller.isOpen,
-              onClose: () => _controller.closeChat(),
-            ),
-          ),
-
-          // Launcher button
-          Positioned(
-            bottom: 20,
-            left: isRight ? null : 20,
-            right: isRight ? 20 : null,
-            child: widget.config.customLauncher != null
-                ? widget.config.customLauncher!(
-                    context,
-                    () => _controller.toggleChat(),
-                  )
-                : DefaultChatLauncher(
-                    onTap: () => _controller.toggleChat(),
-                    backgroundColor: widget.config.primaryColor,
-                    isOpen: _controller.isOpen,
+      child: Overlay(
+        initialEntries: [
+          OverlayEntry(
+            builder: (context) => Stack(
+              children: [
+                // Chat window
+                Positioned(
+                  bottom: 76,
+                  left: isRight ? null : 20,
+                  right: isRight ? 20 : null,
+                  width: MediaQuery.of(context).size.width > 400
+                      ? 370
+                      : MediaQuery.of(context).size.width - 40,
+                  child: AIChatWindow(
+                    config: widget.config,
+                    isVisible: _controller.isOpen,
+                    onClose: () => _controller.closeChat(),
                   ),
+                ),
+
+                // Launcher button
+                Positioned(
+                  bottom: 20,
+                  left: isRight ? null : 20,
+                  right: isRight ? 20 : null,
+                  child: widget.config.customLauncher != null
+                      ? widget.config.customLauncher!(
+                          context,
+                          () => _controller.toggleChat(),
+                        )
+                      : DefaultChatLauncher(
+                          onTap: () => _controller.toggleChat(),
+                          backgroundColor: widget.config.primaryColor,
+                          isOpen: _controller.isOpen,
+                        ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

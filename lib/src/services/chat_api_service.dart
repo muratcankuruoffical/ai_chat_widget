@@ -77,7 +77,9 @@ class ChatApiService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final messages = data['messages'] as List? ?? [];
+      // API returns { result: { messages: [...] } } or { messages: [...] }
+      final result = data['result'] as Map<String, dynamic>?;
+      final messages = (result?['messages'] ?? data['messages']) as List? ?? [];
       return messages
           .map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
           .toList();

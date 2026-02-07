@@ -51,20 +51,8 @@ class _TypingIndicatorState extends State<TypingIndicator>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      margin: const EdgeInsets.only(left: 12, right: 48, top: 4, bottom: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(left: 20, top: 4, bottom: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(3, (i) {
@@ -92,3 +80,4 @@ class _TypingIndicatorState extends State<TypingIndicator>
     );
   }
 }
+

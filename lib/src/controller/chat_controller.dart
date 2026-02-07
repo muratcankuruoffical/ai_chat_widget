@@ -286,8 +286,14 @@ class AIChatController extends ChangeNotifier {
 
     try {
       final newMessages = await _apiService!.pollMessages(_sessionId!);
+      var hasNew = false;
       for (final message in newMessages) {
         if (message.id != null && _displayedMessageIds.contains(message.id)) {
+          continue;
+        }
+        // Skip user messages from polling - they are already added locally
+        if (message.isUser) {
+          if (message.id != null) _displayedMessageIds.add(message.id!);
           continue;
         }
         if (message.id != null) {
@@ -295,8 +301,9 @@ class AIChatController extends ChangeNotifier {
         }
         _messages.add(message);
         _isTyping = false;
+        hasNew = true;
       }
-      if (newMessages.isNotEmpty) {
+      if (hasNew) {
         notifyListeners();
         _saveMessages();
       }
