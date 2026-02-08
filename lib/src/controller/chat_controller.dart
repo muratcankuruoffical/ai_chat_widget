@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_config.dart';
 import '../models/chat_message.dart';
 import '../services/chat_api_service.dart';
-import '../services/websocket_service.dart';
 
 class AIChatController extends ChangeNotifier {
   // Singleton
@@ -32,11 +31,9 @@ class AIChatController extends ChangeNotifier {
   String _selectedLanguage = 'en';
   bool _quickRepliesVisible = true;
   final Set<int> _displayedMessageIds = {};
-  bool _wsReceivedMessage = false;
 
   // Services
   ChatApiService? _apiService;
-  WebSocketService? _wsService;
   Timer? _pollTimer;
   Timer? _autoOpenTimer;
 
@@ -81,15 +78,12 @@ class AIChatController extends ChangeNotifier {
     // Fetch remote config
     await _fetchAndApplyConfig(config);
 
-    // Connect WebSocket
-    await _connectWebSocket();
-
     _isInitialized = true;
     _isLoading = false;
     _isInitializing = false;
     _safeNotifyListeners();
 
-    // Always start polling as fallback - WS will stop it if it works
+    // Start polling if chat is already open
     if (_isOpen) {
       _startPolling();
     }
@@ -187,7 +181,6 @@ class AIChatController extends ChangeNotifier {
       _saveMessages();
     }
 
-    // Always start polling - it will be stopped if WS delivers messages
     _startPolling();
 
     notifyListeners();
@@ -265,14 +258,8 @@ class AIChatController extends ChangeNotifier {
     _sessionId = _generateSessionId();
     _isTyping = false;
     _quickRepliesVisible = true;
-    _wsReceivedMessage = false;
     _saveSession();
     _saveMessages();
-
-    // Re-subscribe WebSocket to new session
-    if (_wsService != null && _wsService!.isConnected && _config != null) {
-      _wsService!.subscribe(_config!.widgetId, _sessionId!);
-    }
 
     // Show welcome message
     if (_config != null) {
@@ -307,68 +294,6 @@ class AIChatController extends ChangeNotifier {
   }
 
   // -- Private methods --
-
-  Future<void> _connectWebSocket() async {
-    if (_config == null ||
-        _config!.websocketKey == null ||
-        _config!.websocketHost == null) {
-      debugPrint('AIChatWidget: WebSocket config missing, using polling only');
-      return;
-    }
-
-    _wsReceivedMessage = false;
-
-    _wsService = WebSocketService(
-      onMessage: _handleWebSocketMessage,
-      onConnected: () {
-        debugPrint('AIChatWidget: WebSocket connected');
-        // Only stop polling if WS has proven it works (received a message before)
-        if (_wsReceivedMessage) {
-          _stopPolling();
-        }
-      },
-      onDisconnected: () {
-        debugPrint('AIChatWidget: WebSocket disconnected');
-        if (_isOpen) _startPolling();
-      },
-      onError: (error) {
-        debugPrint('AIChatWidget: WebSocket error: $error');
-        if (_isOpen) _startPolling();
-      },
-    );
-
-    final connected = await _wsService!.connect(
-      host: _config!.websocketHost!,
-      port: _config!.websocketPort,
-      appKey: _config!.websocketKey!,
-      scheme: _config!.websocketScheme,
-    );
-
-    if (connected && _sessionId != null) {
-      _wsService!.subscribe(_config!.widgetId, _sessionId!);
-    }
-  }
-
-  void _handleWebSocketMessage(ChatMessage message) {
-    // Mark WS as working
-    _wsReceivedMessage = true;
-    // WS is delivering messages, stop polling to avoid duplicates
-    _stopPolling();
-
-    // Avoid duplicate messages
-    if (message.id != null && _displayedMessageIds.contains(message.id)) {
-      return;
-    }
-
-    if (message.id != null) {
-      _displayedMessageIds.add(message.id!);
-    }
-
-    _messages.add(message);
-    _isTyping = false;
-    notifyListeners();
-    _saveMessages();
-  }
 
   /// Try to extract an AI response message from the POST /chat response
   ChatMessage? _extractResponseMessage(Map<String, dynamic> response) {
@@ -519,7 +444,6 @@ class AIChatController extends ChangeNotifier {
   void dispose() {
     _autoOpenTimer?.cancel();
     _stopPolling();
-    _wsService?.disconnect();
     _instance = null;
     super.dispose();
   }

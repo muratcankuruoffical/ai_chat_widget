@@ -73,7 +73,7 @@ class ChatApiService {
     throw Exception('Failed to send message: ${response.statusCode}');
   }
 
-  /// Poll for new messages (fallback when WebSocket is unavailable)
+  /// Poll for new messages
   Future<List<ChatMessage>> pollMessages(String sessionId) async {
     final url = '$_baseUrl/poll/$sessionId';
     final response = await http.get(

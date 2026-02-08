@@ -52,12 +52,6 @@ class AIChatConfig {
   final List<String> supportedLanguages;
   final bool enableLanguageSelector;
 
-  // -- WebSocket --
-  final String? websocketKey;
-  final String? websocketHost;
-  final int websocketPort;
-  final String websocketScheme;
-
   // -- Custom launcher --
   final Widget Function(BuildContext context, VoidCallback onTap)? customLauncher;
 
@@ -98,10 +92,6 @@ class AIChatConfig {
     this.defaultLanguage = 'en',
     this.supportedLanguages = const ['en'],
     this.enableLanguageSelector = false,
-    this.websocketKey,
-    this.websocketHost,
-    this.websocketPort = 443,
-    this.websocketScheme = 'wss',
     this.customLauncher,
     this.origin,
   });
@@ -148,10 +138,6 @@ class AIChatConfig {
           ? List<String>.from(json['supported_languages'] as List)
           : supportedLanguages,
       enableLanguageSelector: json['enable_language_selector'] as bool? ?? enableLanguageSelector,
-      websocketKey: json['websocket_key'] as String? ?? websocketKey,
-      websocketHost: json['websocket_host'] as String? ?? websocketHost,
-      websocketPort: _parseInt(json['websocket_port']) ?? websocketPort,
-      websocketScheme: json['websocket_scheme'] as String? ?? websocketScheme,
     );
   }
 

@@ -1,7 +1,6 @@
 /// AI Chat Widget - A Flutter package for AI-powered customer support chat.
 ///
-/// Connects to ReplyIt.ai backend with WebSocket (Laravel Reverb) and
-/// polling fallback support.
+/// Connects to ReplyIt.ai backend with HTTP polling support.
 ///
 /// Basic usage:
 /// ```dart

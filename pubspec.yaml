@@ -1,5 +1,5 @@
 name: ai_chat_widget
-description: A Flutter chat widget package for AI-powered customer support. Connects to ReplyIt.ai backend with WebSocket and polling support.
+description: A Flutter chat widget package for AI-powered customer support. Connects to ReplyIt.ai backend with polling support.
 version: 1.0.0
 homepage: https://replyit.ai
 
@@ -12,6 +12,5 @@ dependencies:
     sdk: flutter
   http: ^1.2.0
   shared_preferences: ^2.2.0
-  dart_pusher_channels: ^1.2.3
 
 flutter:
