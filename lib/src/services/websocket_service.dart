@@ -129,8 +129,10 @@ class WebSocketService {
                 onMessage!(message);
               }
             }
-          } catch (_) {
-            // Silently ignore malformed messages
+          } catch (e) {
+            // Log malformed messages instead of silently ignoring
+            // ignore: avoid_print
+            print('[WebSocketService] Error parsing message: $e, data: ${event.data}');
           }
         }
       });

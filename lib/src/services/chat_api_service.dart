@@ -75,10 +75,14 @@ class ChatApiService {
 
   /// Poll for new messages (fallback when WebSocket is unavailable)
   Future<List<ChatMessage>> pollMessages(String sessionId) async {
+    final url = '$_baseUrl/poll/$sessionId';
     final response = await http.get(
-      Uri.parse('$_baseUrl/poll/$sessionId'),
+      Uri.parse(url),
       headers: _headers,
     );
+
+    // ignore: avoid_print
+    print('[ChatApiService] Poll ${response.statusCode} ($url) body: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -90,6 +94,8 @@ class ChatApiService {
           .toList();
     }
 
+    // ignore: avoid_print
+    print('[ChatApiService] Poll failed with status ${response.statusCode}: ${response.body}');
     return [];
   }
 }

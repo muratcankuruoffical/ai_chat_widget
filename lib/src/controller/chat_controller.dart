@@ -227,16 +227,30 @@ class AIChatController extends ChangeNotifier {
     _saveMessages();
 
     try {
-      await _apiService!.sendMessage(
+      final response = await _apiService!.sendMessage(
         sessionId: _sessionId!,
         message: trimmed,
         language: _selectedLanguage,
       );
+      debugPrint('AIChatWidget: Message sent successfully, response: $response');
+
+      // Check if the POST response itself contains an AI reply
+      final responseMessage = _extractResponseMessage(response);
+      if (responseMessage != null) {
+        debugPrint('AIChatWidget: Got direct response from POST');
+        _isTyping = false;
+        _messages.add(responseMessage);
+        notifyListeners();
+        _saveMessages();
+        return;
+      }
 
       // Ensure polling is running to catch the response
-      if (_pollTimer == null || !_pollTimer!.isActive) {
-        _startPolling();
-      }
+      _startPolling();
+
+      // Do an immediate poll right after sending
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _poll();
     } catch (e) {
       debugPrint('AIChatWidget: Failed to send message: $e');
       _isTyping = false;
@@ -356,9 +370,45 @@ class AIChatController extends ChangeNotifier {
     _saveMessages();
   }
 
+  /// Try to extract an AI response message from the POST /chat response
+  ChatMessage? _extractResponseMessage(Map<String, dynamic> response) {
+    try {
+      // Check common response formats:
+      // { "result": { "reply": "...", "message": "..." } }
+      // { "reply": "..." }
+      // { "response": "..." }
+      final result = response['result'];
+      if (result is Map<String, dynamic>) {
+        final reply = result['reply'] ?? result['response'];
+        if (reply is String && reply.isNotEmpty) {
+          return ChatMessage(
+            id: result['id'] as int?,
+            message: reply,
+            direction: MessageDirection.outgoing,
+            timestamp: DateTime.now(),
+          );
+        }
+      }
+
+      final directReply = response['reply'] ?? response['response'];
+      if (directReply is String && directReply.isNotEmpty) {
+        return ChatMessage(
+          message: directReply,
+          direction: MessageDirection.outgoing,
+          timestamp: DateTime.now(),
+        );
+      }
+    } catch (e) {
+      debugPrint('AIChatWidget: Error extracting response message: $e');
+    }
+    return null;
+  }
+
   void _startPolling() {
-    if (_pollTimer != null && _pollTimer!.isActive) return; // Already polling
-    debugPrint('AIChatWidget: Polling started');
+    // Cancel existing timer and restart to ensure fresh polling
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    debugPrint('AIChatWidget: Polling started (sessionId: $_sessionId)');
     // Do an immediate poll, then periodic
     _poll();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
@@ -373,10 +423,14 @@ class AIChatController extends ChangeNotifier {
   }
 
   Future<void> _poll() async {
-    if (_apiService == null || _sessionId == null) return;
+    if (_apiService == null || _sessionId == null) {
+      debugPrint('AIChatWidget: Poll skipped - apiService: ${_apiService != null}, sessionId: $_sessionId');
+      return;
+    }
 
     try {
       final newMessages = await _apiService!.pollMessages(_sessionId!);
+      debugPrint('AIChatWidget: Poll returned ${newMessages.length} messages');
       var hasNew = false;
       for (final message in newMessages) {
         if (message.id != null && _displayedMessageIds.contains(message.id)) {
@@ -387,6 +441,7 @@ class AIChatController extends ChangeNotifier {
           if (message.id != null) _displayedMessageIds.add(message.id!);
           continue;
         }
+        debugPrint('AIChatWidget: New agent message from poll: ${message.message.substring(0, message.message.length.clamp(0, 50))}');
         if (message.id != null) {
           _displayedMessageIds.add(message.id!);
         }
@@ -395,7 +450,6 @@ class AIChatController extends ChangeNotifier {
         hasNew = true;
       }
       if (hasNew) {
-        debugPrint('AIChatWidget: Polling received ${newMessages.length} messages');
         notifyListeners();
         _saveMessages();
       }
