@@ -12,6 +12,9 @@ class WebSocketService {
   StreamSubscription? _connectionSub;
   StreamSubscription? _eventSub;
   bool _connected = false;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 3;
+  bool _disposed = false;
 
   final void Function(ChatMessage message)? onMessage;
   final VoidCallback? onConnected;
@@ -35,6 +38,9 @@ class WebSocketService {
     String scheme = 'wss',
   }) async {
     try {
+      _disposed = false;
+      _reconnectAttempts = 0;
+
       final options = PusherChannelsOptions.fromHost(
         scheme: scheme,
         host: host,
@@ -47,19 +53,34 @@ class WebSocketService {
       _client = PusherChannelsClient.websocket(
         options: options,
         connectionErrorHandler: (exception, trace, refresh) {
+          final wasConnected = _connected;
           _connected = false;
-          onError?.call(exception);
-          // Try to reconnect after error
-          Future.delayed(const Duration(seconds: 3), () {
-            refresh();
-          });
+          _reconnectAttempts++;
+
+          if (wasConnected) {
+            // Was connected, now disconnected
+            onDisconnected?.call();
+          }
+
+          if (_disposed) return;
+
+          if (_reconnectAttempts <= _maxReconnectAttempts) {
+            // Try to reconnect
+            Future.delayed(const Duration(seconds: 5), () {
+              if (!_disposed) refresh();
+            });
+          } else {
+            // Max retries reached, give up and let polling take over
+            onError?.call('WebSocket max reconnect attempts reached');
+          }
         },
-        minimumReconnectDelayDuration: const Duration(seconds: 1),
+        minimumReconnectDelayDuration: const Duration(seconds: 2),
         defaultActivityDuration: const Duration(seconds: 120),
       );
 
       _connectionSub = _client!.onConnectionEstablished.listen((_) {
         _connected = true;
+        _reconnectAttempts = 0; // Reset on successful connection
         onConnected?.call();
       });
 
@@ -85,6 +106,7 @@ class WebSocketService {
       _connectionSub?.cancel();
       _connectionSub = _client!.onConnectionEstablished.listen((_) {
         _connected = true;
+        _reconnectAttempts = 0;
         onConnected?.call();
         channel.subscribeIfNotUnsubscribed();
       });
@@ -119,6 +141,7 @@ class WebSocketService {
 
   /// Disconnect and clean up
   void disconnect() {
+    _disposed = true;
     _connectionSub?.cancel();
     _connectionSub = null;
     _eventSub?.cancel();

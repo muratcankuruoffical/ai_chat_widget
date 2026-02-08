@@ -32,6 +32,7 @@ class AIChatController extends ChangeNotifier {
   String _selectedLanguage = 'en';
   bool _quickRepliesVisible = true;
   final Set<int> _displayedMessageIds = {};
+  bool _wsReceivedMessage = false;
 
   // Services
   ChatApiService? _apiService;
@@ -55,10 +56,15 @@ class AIChatController extends ChangeNotifier {
 
   /// Initialize the chat controller with widget configuration
   Future<void> initialize(AIChatConfig config) async {
-    if (_isInitialized && _config?.widgetId == config.widgetId) return;
     if (_isInitializing) return;
-    _isInitializing = true;
 
+    // If already initialized with same widget, just refresh config in background
+    if (_isInitialized && _config?.widgetId == config.widgetId) {
+      _refreshConfigInBackground(config);
+      return;
+    }
+
+    _isInitializing = true;
     _isLoading = true;
     _safeNotifyListeners();
 
@@ -73,13 +79,7 @@ class AIChatController extends ChangeNotifier {
     await _restoreSession();
 
     // Fetch remote config
-    try {
-      final remoteConfig = await _apiService!.fetchConfig();
-      _config = config.copyWithRemote(remoteConfig);
-      _selectedLanguage = _config!.defaultLanguage;
-    } catch (e) {
-      debugPrint('AIChatWidget: Failed to fetch config: $e');
-    }
+    await _fetchAndApplyConfig(config);
 
     // Connect WebSocket
     await _connectWebSocket();
@@ -89,6 +89,11 @@ class AIChatController extends ChangeNotifier {
     _isInitializing = false;
     _safeNotifyListeners();
 
+    // Always start polling as fallback - WS will stop it if it works
+    if (_isOpen) {
+      _startPolling();
+    }
+
     // Auto open if configured
     if (_config!.autoOpen) {
       _autoOpenTimer = Timer(
@@ -97,6 +102,73 @@ class AIChatController extends ChangeNotifier {
           if (!_isOpen) openChat();
         },
       );
+    }
+  }
+
+  Future<void> _fetchAndApplyConfig(AIChatConfig baseConfig) async {
+    try {
+      final remoteConfig = await _apiService!.fetchConfig();
+      debugPrint('AIChatWidget: Config fetched successfully');
+      _config = baseConfig.copyWithRemote(remoteConfig);
+      _selectedLanguage = _config!.defaultLanguage;
+      _updateWelcomeMessage();
+    } catch (e) {
+      debugPrint('AIChatWidget: Failed to fetch config: $e');
+    }
+  }
+
+  Future<void> _refreshConfigInBackground(AIChatConfig baseConfig) async {
+    // Re-fetch config without blocking
+    try {
+      final remoteConfig = await ChatApiService(
+        apiUrl: baseConfig.apiUrl,
+        widgetId: baseConfig.widgetId,
+        origin: baseConfig.origin,
+      ).fetchConfig();
+      debugPrint('AIChatWidget: Config refreshed successfully');
+      _config = baseConfig.copyWithRemote(remoteConfig);
+      _selectedLanguage = _config!.defaultLanguage;
+      _updateWelcomeMessage();
+      _safeNotifyListeners();
+    } catch (e) {
+      debugPrint('AIChatWidget: Failed to refresh config: $e');
+    }
+  }
+
+  /// Force re-fetch config from backend
+  Future<void> refreshConfig() async {
+    if (_apiService == null || _config == null) return;
+
+    try {
+      final remoteConfig = await _apiService!.fetchConfig();
+      final baseConfig = AIChatConfig(
+        widgetId: _config!.widgetId,
+        apiUrl: _config!.apiUrl,
+        origin: _config!.origin,
+        customLauncher: _config!.customLauncher,
+      );
+      _config = baseConfig.copyWithRemote(remoteConfig);
+      _selectedLanguage = _config!.defaultLanguage;
+      _updateWelcomeMessage();
+      _safeNotifyListeners();
+    } catch (e) {
+      debugPrint('AIChatWidget: Failed to refresh config: $e');
+    }
+  }
+
+  /// Update the welcome message if the first message is old default
+  void _updateWelcomeMessage() {
+    if (_messages.isNotEmpty && _messages.first.isAgent && _config != null) {
+      final firstMsg = _messages.first;
+      // If the first message is a welcome message (no id = locally generated)
+      if (firstMsg.id == null && firstMsg.message != _config!.welcomeMessage) {
+        _messages[0] = ChatMessage(
+          message: _config!.welcomeMessage,
+          direction: MessageDirection.outgoing,
+          timestamp: firstMsg.timestamp,
+        );
+        _saveMessages();
+      }
     }
   }
 
@@ -115,10 +187,8 @@ class AIChatController extends ChangeNotifier {
       _saveMessages();
     }
 
-    // Start polling if WebSocket is not connected
-    if (_wsService == null || !_wsService!.isConnected) {
-      _startPolling();
-    }
+    // Always start polling - it will be stopped if WS delivers messages
+    _startPolling();
 
     notifyListeners();
   }
@@ -162,6 +232,11 @@ class AIChatController extends ChangeNotifier {
         message: trimmed,
         language: _selectedLanguage,
       );
+
+      // Ensure polling is running to catch the response
+      if (_pollTimer == null || !_pollTimer!.isActive) {
+        _startPolling();
+      }
     } catch (e) {
       debugPrint('AIChatWidget: Failed to send message: $e');
       _isTyping = false;
@@ -176,6 +251,7 @@ class AIChatController extends ChangeNotifier {
     _sessionId = _generateSessionId();
     _isTyping = false;
     _quickRepliesVisible = true;
+    _wsReceivedMessage = false;
     _saveSession();
     _saveMessages();
 
@@ -222,14 +298,20 @@ class AIChatController extends ChangeNotifier {
     if (_config == null ||
         _config!.websocketKey == null ||
         _config!.websocketHost == null) {
+      debugPrint('AIChatWidget: WebSocket config missing, using polling only');
       return;
     }
+
+    _wsReceivedMessage = false;
 
     _wsService = WebSocketService(
       onMessage: _handleWebSocketMessage,
       onConnected: () {
         debugPrint('AIChatWidget: WebSocket connected');
-        _stopPolling();
+        // Only stop polling if WS has proven it works (received a message before)
+        if (_wsReceivedMessage) {
+          _stopPolling();
+        }
       },
       onDisconnected: () {
         debugPrint('AIChatWidget: WebSocket disconnected');
@@ -250,12 +332,15 @@ class AIChatController extends ChangeNotifier {
 
     if (connected && _sessionId != null) {
       _wsService!.subscribe(_config!.widgetId, _sessionId!);
-    } else if (_isOpen) {
-      _startPolling();
     }
   }
 
   void _handleWebSocketMessage(ChatMessage message) {
+    // Mark WS as working
+    _wsReceivedMessage = true;
+    // WS is delivering messages, stop polling to avoid duplicates
+    _stopPolling();
+
     // Avoid duplicate messages
     if (message.id != null && _displayedMessageIds.contains(message.id)) {
       return;
@@ -272,11 +357,17 @@ class AIChatController extends ChangeNotifier {
   }
 
   void _startPolling() {
-    _stopPolling();
+    if (_pollTimer != null && _pollTimer!.isActive) return; // Already polling
+    debugPrint('AIChatWidget: Polling started');
+    // Do an immediate poll, then periodic
+    _poll();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
   }
 
   void _stopPolling() {
+    if (_pollTimer != null) {
+      debugPrint('AIChatWidget: Polling stopped');
+    }
     _pollTimer?.cancel();
     _pollTimer = null;
   }
@@ -304,6 +395,7 @@ class AIChatController extends ChangeNotifier {
         hasNew = true;
       }
       if (hasNew) {
+        debugPrint('AIChatWidget: Polling received ${newMessages.length} messages');
         notifyListeners();
         _saveMessages();
       }
