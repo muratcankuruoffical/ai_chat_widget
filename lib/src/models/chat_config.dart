@@ -141,7 +141,7 @@ class AIChatConfig {
           : quickReplies,
       enableSound: json['enable_sound'] as bool? ?? enableSound,
       autoOpen: json['auto_open'] as bool? ?? autoOpen,
-      autoOpenDelay: json['auto_open_delay'] as int? ?? autoOpenDelay,
+      autoOpenDelay: _parseInt(json['auto_open_delay']) ?? autoOpenDelay,
       position: json['widget_position'] as String? ?? position,
       defaultLanguage: json['default_language'] as String? ?? defaultLanguage,
       supportedLanguages: json['supported_languages'] != null
@@ -150,9 +150,16 @@ class AIChatConfig {
       enableLanguageSelector: json['enable_language_selector'] as bool? ?? enableLanguageSelector,
       websocketKey: json['websocket_key'] as String? ?? websocketKey,
       websocketHost: json['websocket_host'] as String? ?? websocketHost,
-      websocketPort: json['websocket_port'] as int? ?? websocketPort,
+      websocketPort: _parseInt(json['websocket_port']) ?? websocketPort,
       websocketScheme: json['websocket_scheme'] as String? ?? websocketScheme,
     );
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   static Color? _parseColor(dynamic value) {

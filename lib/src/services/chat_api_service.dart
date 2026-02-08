@@ -32,9 +32,14 @@ class ChatApiService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      // Backend returns config inside 'config' key
-      if (data is Map<String, dynamic> && data.containsKey('config')) {
-        return data['config'] as Map<String, dynamic>;
+      if (data is Map<String, dynamic>) {
+        // Backend may wrap config inside 'result' or 'config' key
+        if (data.containsKey('result') && data['result'] is Map<String, dynamic>) {
+          return data['result'] as Map<String, dynamic>;
+        }
+        if (data.containsKey('config') && data['config'] is Map<String, dynamic>) {
+          return data['config'] as Map<String, dynamic>;
+        }
       }
       return data as Map<String, dynamic>;
     }

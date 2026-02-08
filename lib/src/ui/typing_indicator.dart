@@ -52,30 +52,37 @@ class _TypingIndicatorState extends State<TypingIndicator>
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 20, top: 4, bottom: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(3, (i) {
-          return AnimatedBuilder(
-            animation: _animations[i],
-            builder: (context, child) {
-              return Container(
-                margin: EdgeInsets.only(right: i < 2 ? 4 : 0),
-                child: Transform.translate(
-                  offset: Offset(0, _animations[i].value),
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: widget.dotColor,
-                      shape: BoxShape.circle,
+      padding: const EdgeInsets.only(left: 44, top: 4, bottom: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            return AnimatedBuilder(
+              animation: _animations[i],
+              builder: (context, child) {
+                return Container(
+                  margin: EdgeInsets.only(right: i < 2 ? 4 : 0),
+                  child: Transform.translate(
+                    offset: Offset(0, _animations[i].value),
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: widget.dotColor,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          );
-        }),
+                );
+              },
+            );
+          }),
+        ),
       ),
     );
   }

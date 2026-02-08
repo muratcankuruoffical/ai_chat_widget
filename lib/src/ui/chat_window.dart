@@ -230,7 +230,10 @@ class _AIChatWindowState extends State<AIChatWindow>
         itemCount: messages.length + (_chatController.isTyping ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == messages.length) {
-            return TypingIndicator(dotColor: config.primaryColor);
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: TypingIndicator(dotColor: config.primaryColor),
+            );
           }
           return ChatMessageBubble(
             message: messages[index],
