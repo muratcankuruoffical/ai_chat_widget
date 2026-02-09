@@ -19,6 +19,7 @@ export 'src/models/quick_reply.dart';
 export 'src/controller/chat_controller.dart';
 
 // UI Widgets
+export 'src/ui/chat_view.dart';
 export 'src/ui/chat_widget.dart';
 export 'src/ui/chat_window.dart';
 export 'src/ui/default_launcher.dart';
